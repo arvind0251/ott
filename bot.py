@@ -5,17 +5,23 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.utils import executor
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from dotenv import load_dotenv
+import razorpay
 
-# Load API Key from environment variables
+# Load API Keys from environment variables
 load_dotenv()
 API_KEY = os.getenv("OTPFAST_API_KEY")
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
+RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
 API_URL = "http://otpfast.co/stubs/handler_api.php"
 
 # Setup bot
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(bot)
+
+# Setup Razorpay client
+razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
 
 # Main Menu
 async def main_menu(message: types.Message):
@@ -59,7 +65,19 @@ async def ready_accounts(call: types.CallbackQuery):
 # Recharge Handler
 @dp.callback_query_handler(lambda call: call.data == "recharge")
 async def recharge(call: types.CallbackQuery):
-    await call.message.edit_text("\U0001F4B5 Recharge options coming soon.")
+    order_amount = 10000  # Amount in paise (100 INR)
+    order_currency = "INR"
+    order_receipt = f"order_rcptid_{call.from_user.id}"
+    
+    order = razorpay_client.order.create({
+        "amount": order_amount,
+        "currency": order_currency,
+        "receipt": order_receipt,
+        "payment_capture": 1
+    })
+    
+    payment_link = f"https://rzp.io/i/{order['id']}"
+    await call.message.edit_text(f"\U0001F4B5 Recharge your account using Razorpay: [Pay Now]({payment_link})", parse_mode="Markdown")
 
 # Refer & Earn Handler
 @dp.callback_query_handler(lambda call: call.data == "refer_earn")

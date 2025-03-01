@@ -6,6 +6,7 @@ from aiogram.utils import executor
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from dotenv import load_dotenv
 import razorpay
+from aiogram.dispatcher.filters import Text
 
 # Load API Keys from environment variables
 load_dotenv()
@@ -62,7 +63,7 @@ async def buy_numbers(call: types.CallbackQuery):
 async def ready_accounts(call: types.CallbackQuery):
     await call.message.edit_text("\U0001F4BB ReadyMade Accounts (IRCTC, etc.) will be available soon.")
 
-# Recharge Handler
+# Recharge Handler with Payment Verification
 @dp.callback_query_handler(lambda call: call.data == "recharge")
 async def recharge(call: types.CallbackQuery):
     order_amount = 10000  # Amount in paise (100 INR)
@@ -78,6 +79,19 @@ async def recharge(call: types.CallbackQuery):
     
     payment_link = f"https://rzp.io/i/{order['id']}"
     await call.message.edit_text(f"\U0001F4B5 Recharge your account using Razorpay: [Pay Now]({payment_link})", parse_mode="Markdown")
+
+# Payment Verification Handler
+@dp.message_handler(Text(startswith="/verify_payment "))
+async def verify_payment(message: types.Message):
+    payment_id = message.text.split()[1]
+    try:
+        payment = razorpay_client.payment.fetch(payment_id)
+        if payment["status"] == "captured":
+            await message.reply(f"✅ Payment successful! Transaction ID: {payment_id}")
+        else:
+            await message.reply("❌ Payment not successful. Please try again.")
+    except Exception as e:
+        await message.reply(f"❌ Error verifying payment: {str(e)}")
 
 # Refer & Earn Handler
 @dp.callback_query_handler(lambda call: call.data == "refer_earn")
